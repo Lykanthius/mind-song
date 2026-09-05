@@ -1,0 +1,47 @@
+Icon — airplane over mountains (with Christmas tree, letter M motifs)
+-goes at bottom of game_won_options() and game_over_options
+-goes at the end of quit(), at the bottom of the credits
+-may later be added to bottom of title in main menu, but for now, it will be absent from the main menu to avoid overwhelming player
+
+
+        ✈
+         \    
+          \    
+        /\    /\ 
+       /  \  /  \
+      /    \/    \
+
+__  __ _   _ ____ ___ ____    _      ____    _     __  __ _____ _   _ _____ _____ 
+
+Title English
+-below the title will be a português language option, that if selected will turn into an inglês option. 
+-below the title will be a music off/on toggle option
+-below the title will be something like, "Play game" or something figuratively equivalent
+
+__  __ _           _    ____                   
+|  \/  (_)_ __   __| |  / ___|  ___  _ __   __ _ 
+| |\/| | | '_ \ / _` |  \___ \ / _ \| '_ \ / _` |
+| |  | | | | | | (_| |   ___) | (_) | | | | (_| |
+|_|  |_|_|_| |_|\__,_|  |____/ \___/|_| |_|\__, |
+                                           |___/ 
+                Mind Song
+
+__  __ _   _ ____ ___ ____    _      ____    _     __  __ _____ _   _ _____ _____ 
+
+Title Brazilian Portuguese
+
+__  __             _                 _        
+|  \/  |_ / _  ___(_) ___ __ _    __| | __ _ 
+| |\/| | | | |/ __| |/ __/ _` |  / _` |/ _` |
+| |  | | |_| |\__ \ | (_| (_| | | (_| | (_| |
+|_|  |_|\__,_||___/_|\___\__,_|  \__,_|\__,_|
+ '
+ __  __             _       
+|  \/  | ___ _ __  | |_ ___ 
+| |\/| |/ _ \ '_ \ | __/ _ \
+| |  | |  __/ | | || |_  __/
+|_|  |_|\___|_| |_| \__\___|
+
+        Música da Mente
+
+

@@ -1,0 +1,424 @@
+:root {
+  --ms-baby-blue: #87CEFA;
+}
+
+/* Global sizing sanity: prevents 1–3px overflow/clipping on mobile */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #000;
+  color: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* prevent pull-to-refresh & swipe reload */
+  overscroll-behavior: none;
+  touch-action: manipulation;
+
+  /* prevent a 2nd scroll plane (page/frame scroll) */
+  overflow: hidden;
+
+  /* prevent Chrome scroll anchoring from "helping" during rapid appends */
+  overflow-anchor: none;
+
+  /* IMPORTANT: do NOT hard-fix the root on Android — it can trigger scroll lock/drift */
+  position: relative;
+  width: 100%;
+}
+
+/* --- Hard lock each "screen" to the VISUAL viewport (keyboard-safe) --- */
+#loadingScreen,
+#appScreen,
+#gameScreen {
+  position: fixed;
+  left: 0;
+  right: 0;
+
+  /* VisualViewport-driven position + height (set by app.js) */
+  top: var(--vv-top, 0px);
+  height: var(--vvh, 100dvh);
+
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ============================================================
+   Phase 3.0 — Portrait-only Orientation Lock (MANDATORY)
+   ============================================================ */
+#orientationLock {
+  position: fixed;
+  left: 0;
+  right: 0;
+
+  /* Match our VisualViewport-driven screen locking */
+  top: var(--vv-top, 0px);
+  height: var(--vvh, 100dvh);
+
+  width: 100%;
+  background: #000;
+  color: #fff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+  padding: 24px;
+  box-sizing: border-box;
+
+  z-index: 9999;
+
+  /* Block all interaction behind it */
+  pointer-events: auto;
+
+  /* No selection, no accidental highlight */
+  user-select: none;
+}
+
+#loadingScreen {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+#loadingText {
+  font-size: 16px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* ==========================
+   Main Menu placeholder UI
+   ========================== */
+#appScreen {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+#appInner {
+  width: 100%;
+  max-width: 720px;
+}
+
+#menuTitleArt {
+  width: min(100%, 640px);
+  margin: 0 auto 18px auto;
+  display: block;
+  user-select: none;
+}
+
+#menuTitleArt svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+#menuButtons {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  margin: 10px 0 8px;
+}
+
+#menuButtons button {
+  width: min(260px, 90vw);
+  background: transparent;
+  color: #fff;
+  border: 1px solid #fff;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  text-align: center;
+}
+
+#menuButtons button:active {
+  transform: translateY(1px);
+}
+
+/* Keyboard submission acknowledgement (matches the :active press feel) */
+#menuButtons button.ms-flash {
+  transform: translateY(1px);
+}
+
+#menuHint {
+  margin-top: 12px;
+  opacity: 0.7;
+  font-size: 12px;
+  user-select: none;
+}
+
+/* Phase 3.0: main menu input line (mirrors VKBD buffer) */
+#menuInputRow {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  width: min(320px, 92vw);
+  margin: 14px auto 0;
+  border: 1px solid rgba(255,255,255,0.24);
+  /* Ensure the bottom edge is always visible even if something overlaps by 1px */
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,0.24);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  align-items: center;
+  text-align: left;
+}
+
+.ms-prompt {
+  opacity: 0.85;
+  user-select: none;
+}
+
+#menuInputDisplay {
+  min-height: 1.2em;
+  white-space: pre;
+}
+
+/* Main menu VKBD mount mirrors gameplay VKBD width */
+#menuVkbdMount {
+  width: 100%;
+  max-width: 720px;
+  margin: 10px auto 0 auto;
+}
+
+/* ==========================
+   Phase 2.1: Transcript UI
+   ========================== */
+
+#gameScreen {
+  position: fixed;
+  left: 0;
+  right: 0;
+
+  /* VisualViewport-driven position + height (set by app.js) */
+  top: var(--vv-top, 0px);
+  height: var(--vvh, 100dvh);
+
+  width: 100%;
+
+  /* IMPORTANT: make the viewport a real flex frame */
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+
+  padding: 24px;
+  box-sizing: border-box;
+
+  /* never allow a second scroll plane */
+  overflow: hidden;
+  min-height: 0;
+}
+
+#gameInner {
+  width: 100%;
+  max-width: 720px;
+
+  /* IMPORTANT: explicitly fill the viewport height so transcript scroll stays stable */
+  height: 100%;
+  flex: 1 1 auto;
+
+  min-height: 0;
+  overflow: hidden;
+
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+#transcriptBox {
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 12px;
+  padding: 16px;
+
+  /* THE one and only scroll container */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+
+  /* Prevent browser scroll anchoring from “locking” the scroll after many appends */
+  overflow-anchor: none;
+
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+#inputRow {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ---> Phase 3.1: Virtual keyboard mount point (hidden until wired) */
+#vkbd {
+  width: 100%;
+  max-width: 720px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+
+  /* Shared VKBD: pin to bottom of the visual viewport */
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+  z-index: 50;
+}
+
+/* When VKBD is active, make room so gameplay UI isn't covered */
+body.ms-vkbd-on #gameInner {
+  padding-bottom: 240px;
+  box-sizing: border-box;
+}
+
+body.ms-vkbd-on #inputRow {
+  grid-template-columns: 18px minmax(0, 1fr);
+}
+
+/* Phase 3.0: when VKBD is active, the physical Enter button must not appear */
+body.ms-vkbd-on #btnEnter {
+  display: none;
+}
+
+/* VKBD container */
+.ms-vkbd {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  /* Fix: avoid "transparent overlay" feel by giving the keyboard an opaque panel */
+  background: rgba(0,0,0,0.92);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: 12px;
+
+  padding: 10px 14px;
+}
+
+/* Each keyboard row fills full width */
+.ms-vkbd-row {
+  width: 100%;
+  min-width: 0; /* <-- NEW: allow grid to shrink inside narrow containers */
+  display: grid;
+  gap: 8px;
+}
+
+/* Top row: 3 keys across, equal width */
+.ms-vkbd-row--top {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Bottom row: [ ⌫ ] [ space (wide, spans 2 columns) ] */
+.ms-vkbd-row--bottom {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 8px;
+}
+
+/* Space explicitly fills its cell */
+.ms-vkbd-btn--space {
+  width: 100%;
+}
+
+/* Buttons fill their grid cells */
+.ms-vkbd-btn {
+  width: 100%;
+  min-width: 0; /* prevents button content from forcing overflow */
+  padding: 12px 12px; /* tap target */
+  border-radius: 10px;
+  border: 1px solid var(--ms-baby-blue);
+  background: #000;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+
+  /* ---> NEW: hard-center key labels (fixes right-shift inside keycaps) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.ms-vkbd-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ms-vkbd-btn:active {
+  transform: translateY(1px);
+}
+
+/* ---> NEW: enlarge the backspace glyph on every keyboard mode */
+.ms-vkbd-btn--backspace {
+  font-size: 24px;
+  line-height: 1;
+}
+
+/* ---> Phase 3.0: VKBD disabled state (dims + removes “click me” affordance) */
+.ms-vkbd[aria-disabled="true"] {
+  opacity: 0.65; /* <-- NEW */
+}
+
+.ms-vkbd[aria-disabled="true"] button {
+  cursor: default; /* <-- NEW */
+}
+
+#prompt {
+  opacity: 0.9;
+  user-select: none;
+}
+
+#gameInput {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 16px;
+  outline: none;
+}
+
+#btnEnter {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#btnEnter:active {
+  transform: translateY(1px);
+}
+
+#gameHint {
+  margin-top: 0;
+  opacity: 0.65;
+  font-size: 12px;
+  user-select: none;
+}

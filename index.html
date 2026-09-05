@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,interactive-widget=resizes-content" />
+    <title>Mind Song</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <!-- Phase 3.0: Portrait-only Orientation Lock (MANDATORY) -->
+    <div id="orientationLock" aria-live="polite" style="display:none;">
+      Please return to upright position.
+    </div>
+    
+    <!-- Phase 1.1: Loading Screen -->
+    <main id="loadingScreen" aria-live="polite">
+      <div id="loadingText"></div>
+    </main>
+
+    <!-- Phase 1.2/2.0: Main Menu Screen (placeholder UI) -->
+    <main id="appScreen" aria-live="polite" style="display:none;">
+      <div id="appInner">
+        <pre id="menuTitleArt"></pre>
+
+        <div id="menuButtons">
+          <button id="btnStart" type="button"><span class="ms-menu-num">1.</span><span class="ms-menu-label">Start game</span></button>
+          <button id="btnLanguage" type="button"><span class="ms-menu-num">2.</span><span class="ms-menu-label">Language</span></button>
+          <button id="btnMusic" type="button"><span class="ms-menu-num">3.</span><span class="ms-menu-label">Music: OFF</span></button>
+        </div>
+
+        <div id="menuHint">(Main Menu placeholder)</div>
+      </div>
+    </main>
+
+    <!-- Phase 2.1: Gameplay Screen (transcript render surface) -->
+    <main id="gameScreen" aria-live="polite" style="display:none;">
+      <div id="gameInner">
+        <pre id="transcriptBox"></pre>
+
+        <div id="inputRow">
+          <span id="prompt"></span>
+          <input id="gameInput" type="text" inputmode="text" autocomplete="off" spellcheck="false" />
+          <button id="btnEnter" type="button">Space</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Phase 3.0: Virtual keyboard mount point (shared by menu + gameplay) -->
+    <div id="vkbd" aria-hidden="true" style="display:none;"></div>
+
+    <!-- Menu music (will only play after user taps Play >) -->
+    <audio id="bgMusic" preload="auto" loop>
+      <!-- ---> NEW: offer higher-quality/mobile-friendly formats; browser picks what it supports -->
+      <source src="main_menu.m4a" type="audio/mp4" />
+      <source src="main_menu.ogg" type="audio/ogg" />
+    </audio>
+
+    <script src="app.js"></script>
+  </body>
+</html>
