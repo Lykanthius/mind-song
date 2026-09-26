@@ -587,6 +587,66 @@ let MS_latestChoices = null;
 // ---> NEW: Phase 3.1 engine-declared keyboard mode (capture only for now)
 let MS_latestInputMode = null;
 
+// ---> NEW (Phase 2.8): latest engine-declared timed-choice allowance.
+// Capture only for now; no countdown behavior yet.
+let MS_latestChoiceTimeoutSeconds = null;
+
+// ---> NEW (Phase 2.8.C.36): capture whether the latest engine response
+// remains inside the SAME timed-choice countdown lifetime.
+let MS_latestChoiceTimerContinues = false;
+
+// ---> NEW (Phase 2.8.C.37): one continuous timed-choice lifetime.
+// These are deliberately independent of keyboard/input locking because
+// invalid submissions and their narrative response do NOT stop the clock.
+let MS_choiceTimerActive = false;
+let MS_choiceTimerDeadlineMs = null;
+let MS_choiceTimerTimeoutId = null;
+
+// ---> NEW (Phase 2.8.C.38): start exactly one NEW timed-choice lifetime.
+// This helper will eventually be called only when the timed choice has
+// finished printing and actually becomes available to the player.
+function MS_startChoiceTimer(seconds) {
+  const durationMs = Math.max(0, Number(seconds) || 0) * 1000;
+
+  if (MS_choiceTimerTimeoutId !== null) {
+    clearTimeout(MS_choiceTimerTimeoutId);
+  }
+
+  MS_choiceTimerActive = true;
+  MS_choiceTimerDeadlineMs = Date.now() + durationMs;
+
+  MS_choiceTimerTimeoutId = setTimeout(async () => {
+    // ---> NEW (Phase 2.8.C.42): reaching zero ends this timed-choice
+    // lifetime and dispatches the canonical timeout sentinel to the engine.
+    MS_choiceTimerTimeoutId = null;
+    MS_choiceTimerDeadlineMs = null;
+    MS_choiceTimerActive = false;
+
+    // Lock immediately so a late player submission cannot beat the timeout.
+    setGameplayInputEnabled(false);
+    __msAwaitingInput = false;
+
+    try {
+      await ensureMsPySession();
+      await msPySendInput("__TIMEOUT__");
+    } catch (e) {
+      appendTranscriptLine("[JS ERR] " + (e && e.message ? e.message : String(e)));
+    }
+  }, durationMs);
+}
+
+// ---> NEW (Phase 2.8.C.40): end the current timed-choice lifetime
+// after the player has committed a valid answer.
+function MS_cancelChoiceTimer() {
+  if (MS_choiceTimerTimeoutId !== null) {
+    clearTimeout(MS_choiceTimerTimeoutId);
+  }
+
+  MS_choiceTimerTimeoutId = null;
+  MS_choiceTimerDeadlineMs = null;
+  MS_choiceTimerActive = false;
+}
+
 function MS_applyVkbdFromChoices() {
   if (!__msUseVirtualKeyboard) return;
 
@@ -830,6 +890,12 @@ def _ms_emit(out):
         "engine_ready": bool(meta.get("engine_ready", False)),
         "choices": out.get("choices", None),
         "input_mode": out.get("input_mode", None),
+        # ---> NEW (Phase 2.8): carry the engine-owned timed-choice allowance
+        # across the adapter boundary; JS does not act on it yet.
+        "choice_timeout_seconds": meta.get("choice_timeout_seconds", None),
+        # ---> NEW (Phase 2.8.C.35): tell JS that an invalid timed submission
+        # remains inside the SAME countdown lifetime.
+        "choice_timer_continues": bool(meta.get("choice_timer_continues", False)),
     }
     print("\x1eMS:" + json.dumps(ctrl, ensure_ascii=False))
 
@@ -945,10 +1011,21 @@ async function msPySendInput(text) {
   if (res.out && res.out.trim()) {
     const parsed = parseMsPyOut(res.out);
 
-    // ---> NEW: capture the engine-declared mode for this turn
+      // ---> NEW: capture the engine-declared mode for this turn
     if (parsed.meta.input_mode !== undefined) {
       MS_latestInputMode = parsed.meta.input_mode;
     }
+
+    // ---> NEW (Phase 2.8): capture the engine-owned timed-choice allowance.
+    // Do not start a countdown yet.
+    if (parsed.meta.choice_timeout_seconds !== undefined) {
+      MS_latestChoiceTimeoutSeconds = parsed.meta.choice_timeout_seconds;
+    }
+
+    // ---> NEW (Phase 2.8.C.36): capture only; real-time timer behavior
+    // is intentionally not implemented in this microstep.
+    MS_latestChoiceTimerContinues =
+      parsed.meta.choice_timer_continues === true;
 
     if (parsed.meta.prompt) {
       applyEnginePrompt(parsed.meta.prompt);
@@ -1392,6 +1469,17 @@ function maybeUnlockTurnInput() {
   const noPendingPrint = (!__msPrinting) && (__msPrintQueue.length === 0);
 
   if (__msAwaitingInput && noPendingPrint) {
+    // ---> NEW (Phase 2.8.C.39): a NEW timed-choice lifetime begins only
+    // when that choice has finished printing and is actually playable.
+    // Repeated gate checks must never restart an already-active countdown.
+    if (
+      MS_choiceTimerActive === false &&
+      MS_latestChoiceTimerContinues === false &&
+      MS_latestChoiceTimeoutSeconds !== null
+    ) {
+      MS_startChoiceTimer(MS_latestChoiceTimeoutSeconds);
+    }
+
     setGameplayInputEnabled(true);
     focusGameplayInput();
     return;
@@ -1580,6 +1668,15 @@ function wireGameplayInput() {
       : String(gameInput.value || "").trim();
 
     if (!s) return;
+
+    // ---> NEW (Phase 2.8.C.40): only a VALID answer ends an active
+    // timed-choice lifetime. Junk input leaves the same clock running.
+    if (
+      MS_choiceTimerActive === true &&
+      (s === "1" || s === "2")
+    ) {
+      MS_cancelChoiceTimer();
+    }
 
     appendTranscriptLine(`> ${s}`);
 

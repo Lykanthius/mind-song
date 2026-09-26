@@ -3448,7 +3448,7 @@ def child_level_one():
     
     print_pause(
         f"\n{character_name} says they don't want to spend the night with you anymore "
-        "because of the nighmares.\n"
+        "because of the nightmares.\n"
     )
 
     get_lives()
