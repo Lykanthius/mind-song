@@ -923,11 +923,6 @@ function applyEnginePrompt(promptStr) {
 
   // ---> NEW: turn-based gate follows whether a real prompt is visible
   __msAwaitingInput = !!trimmed;
-
-  // Enforce correct keyboard behavior:
-  // - locked during printing / queued transcript
-  // - unlocked ONLY when it's truly the player's turn
-  maybeUnlockTurnInput();
 }
 
 // ============================================================
