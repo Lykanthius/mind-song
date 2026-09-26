@@ -33,6 +33,7 @@ const menuHint = document.getElementById("menuHint");
 // Phase 2.1 gameplay nodes (transcript + input)
 const gameScreen = document.getElementById("gameScreen");
 const transcriptBox = document.getElementById("transcriptBox");
+const choiceTimer = document.getElementById("choiceTimer");
 
 const gameInput = document.getElementById("gameInput");
 const btnEnter = document.getElementById("btnEnter");
@@ -602,6 +603,26 @@ let MS_choiceTimerActive = false;
 let MS_choiceTimerDeadlineMs = null;
 let MS_choiceTimerTimeoutId = null;
 
+// ---> NEW (Phase 2.8.C.47): player-facing countdown tick.
+let MS_choiceTimerIntervalId = null;
+
+// ---> NEW (Phase 2.8.C.45): render the player-facing countdown.
+// Passing null hides it completely.
+function MS_renderChoiceTimer(secondsLeft) {
+  if (!choiceTimer) return;
+
+  if (secondsLeft === null) {
+    choiceTimer.textContent = "";
+    choiceTimer.style.display = "none";
+    return;
+  }
+
+  const wholeSeconds = Math.max(0, Math.ceil(Number(secondsLeft) || 0));
+
+  choiceTimer.textContent = `⏳ ${String(wholeSeconds).padStart(2, "0")}s`;
+  choiceTimer.style.display = "block";
+}
+
 // ---> NEW (Phase 2.8.C.38): start exactly one NEW timed-choice lifetime.
 // This helper will eventually be called only when the timed choice has
 // finished printing and actually becomes available to the player.
@@ -612,15 +633,53 @@ function MS_startChoiceTimer(seconds) {
     clearTimeout(MS_choiceTimerTimeoutId);
   }
 
+  // ---> NEW (Phase 2.8.C.50): defensive cleanup before starting
+  // a new player-facing countdown tick.
+  if (MS_choiceTimerIntervalId !== null) {
+    clearInterval(MS_choiceTimerIntervalId);
+    MS_choiceTimerIntervalId = null;
+  }
+
   MS_choiceTimerActive = true;
   MS_choiceTimerDeadlineMs = Date.now() + durationMs;
 
+  // ---> NEW (Phase 2.8.C.46): show the initial countdown value immediately.
+  MS_renderChoiceTimer(seconds);
+
+  // ---> NEW (Phase 2.8.C.47): refresh the visible countdown while preserving
+  // the single absolute deadline as the source of truth.
+  MS_choiceTimerIntervalId = setInterval(() => {
+    if (MS_choiceTimerDeadlineMs === null) return;
+
+    const secondsLeft = Math.max(
+      0,
+      (MS_choiceTimerDeadlineMs - Date.now()) / 1000
+    );
+
+    MS_renderChoiceTimer(secondsLeft);
+  }, 100);
+
   MS_choiceTimerTimeoutId = setTimeout(async () => {
+    // ---> NEW (Phase 2.8.C.51): explicitly render zero at expiration.
+    MS_renderChoiceTimer(0);
+
+    // ---> NEW (Phase 2.8.C.48): stop the player-facing countdown tick.
+    if (MS_choiceTimerIntervalId !== null) {
+      clearInterval(MS_choiceTimerIntervalId);
+      MS_choiceTimerIntervalId = null;
+    }
+
     // ---> NEW (Phase 2.8.C.42): reaching zero ends this timed-choice
     // lifetime and dispatches the canonical timeout sentinel to the engine.
     MS_choiceTimerTimeoutId = null;
     MS_choiceTimerDeadlineMs = null;
     MS_choiceTimerActive = false;
+
+    // ---> NEW (Phase 2.8.C.52): let the player actually see zero
+    // before removing the expired countdown.
+    setTimeout(() => {
+      MS_renderChoiceTimer(null);
+    }, 250);
 
     // Lock immediately so a late player submission cannot beat the timeout.
     setGameplayInputEnabled(false);
@@ -642,9 +701,19 @@ function MS_cancelChoiceTimer() {
     clearTimeout(MS_choiceTimerTimeoutId);
   }
 
+  // ---> NEW (Phase 2.8.C.48): stop the player-facing countdown tick.
+  if (MS_choiceTimerIntervalId !== null) {
+    clearInterval(MS_choiceTimerIntervalId);
+    MS_choiceTimerIntervalId = null;
+  }
+
   MS_choiceTimerTimeoutId = null;
   MS_choiceTimerDeadlineMs = null;
   MS_choiceTimerActive = false;
+
+  // ---> NEW (Phase 2.8.C.49): timed-choice lifetime is over;
+  // remove its player-facing countdown.
+  MS_renderChoiceTimer(null);
 }
 
 function MS_applyVkbdFromChoices() {

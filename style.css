@@ -260,6 +260,16 @@ html, body {
   line-height: 1.5;
 }
 
+/* ---> NEW (Phase 2.8.C.53): player-facing timed-choice countdown */
+#choiceTimer {
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 16px;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
 #inputRow {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
