@@ -600,11 +600,7 @@ let MS_latestChoiceTimerContinues = false;
 // These are deliberately independent of keyboard/input locking because
 // invalid submissions and their narrative response do NOT stop the clock.
 let MS_choiceTimerActive = false;
-let MS_choiceTimerDeadlineMs = null;
 let MS_choiceTimerTimeoutId = null;
-
-// ---> NEW (Phase 2.8.C.47): player-facing countdown tick.
-let MS_choiceTimerIntervalId = null;
 
 // ---> NEW (Phase 2.8.C.45): render the player-facing countdown.
 // Passing null hides it completely.
@@ -627,71 +623,55 @@ function MS_renderChoiceTimer(secondsLeft) {
 // This helper will eventually be called only when the timed choice has
 // finished printing and actually becomes available to the player.
 function MS_startChoiceTimer(seconds) {
-  const durationMs = Math.max(0, Number(seconds) || 0) * 1000;
+  const startSeconds = Math.max(0, Math.ceil(Number(seconds) || 0));
 
   if (MS_choiceTimerTimeoutId !== null) {
     clearTimeout(MS_choiceTimerTimeoutId);
-  }
-
-  // ---> NEW (Phase 2.8.C.50): defensive cleanup before starting
-  // a new player-facing countdown tick.
-  if (MS_choiceTimerIntervalId !== null) {
-    clearInterval(MS_choiceTimerIntervalId);
-    MS_choiceTimerIntervalId = null;
+    MS_choiceTimerTimeoutId = null;
   }
 
   MS_choiceTimerActive = true;
-  MS_choiceTimerDeadlineMs = Date.now() + durationMs;
 
-  // ---> NEW (Phase 2.8.C.46): show the initial countdown value immediately.
-  MS_renderChoiceTimer(seconds);
-
-  // ---> NEW (Phase 2.8.C.47): refresh the visible countdown while preserving
-  // the single absolute deadline as the source of truth.
-  MS_choiceTimerIntervalId = setInterval(() => {
-    if (MS_choiceTimerDeadlineMs === null) return;
-
-    const secondsLeft = Math.max(
-      0,
-      (MS_choiceTimerDeadlineMs - Date.now()) / 1000
-    );
-
+  const tick = async (secondsLeft) => {
+    // This callback owns both the visible digit and the next timer step.
+    // No second clock runs alongside it.
     MS_renderChoiceTimer(secondsLeft);
-  }, 100);
 
-  MS_choiceTimerTimeoutId = setTimeout(async () => {
-    // ---> NEW (Phase 2.8.C.51): explicitly render zero at expiration.
-    MS_renderChoiceTimer(0);
+    if (secondsLeft <= 0) {
+      MS_choiceTimerTimeoutId = null;
+      MS_choiceTimerActive = false;
 
-    // ---> NEW (Phase 2.8.C.48): stop the player-facing countdown tick.
-    if (MS_choiceTimerIntervalId !== null) {
-      clearInterval(MS_choiceTimerIntervalId);
-      MS_choiceTimerIntervalId = null;
-    }
+      // The timed choice is over immediately at zero.
+      setGameplayInputEnabled(false);
+      __msAwaitingInput = false;
 
-    // ---> NEW (Phase 2.8.C.42): reaching zero ends this timed-choice
-    // lifetime and dispatches the canonical timeout sentinel to the engine.
-    MS_choiceTimerTimeoutId = null;
-    MS_choiceTimerDeadlineMs = null;
-    MS_choiceTimerActive = false;
-
-    // ---> NEW (Phase 2.8.C.52): let the player actually see zero
-    // before removing the expired countdown.
-    setTimeout(() => {
+      // Let 00 render once, then remove the expired timer before the
+      // timeout consequence begins arriving from the engine.
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(resolve);
+        });
+      });
       MS_renderChoiceTimer(null);
-    }, 250);
 
-    // Lock immediately so a late player submission cannot beat the timeout.
-    setGameplayInputEnabled(false);
-    __msAwaitingInput = false;
+      try {
+        await ensureMsPySession();
+        await msPySendInput("__TIMEOUT__");
+      } catch (e) {
+        appendTranscriptLine(
+          "[JS ERR] " + (e && e.message ? e.message : String(e))
+        );
+      }
 
-    try {
-      await ensureMsPySession();
-      await msPySendInput("__TIMEOUT__");
-    } catch (e) {
-      appendTranscriptLine("[JS ERR] " + (e && e.message ? e.message : String(e)));
+      return;
     }
-  }, durationMs);
+
+    MS_choiceTimerTimeoutId = setTimeout(() => {
+      void tick(secondsLeft - 1);
+    }, 1000);
+  };
+
+  void tick(startSeconds);
 }
 
 // ---> NEW (Phase 2.8.C.40): end the current timed-choice lifetime
@@ -701,14 +681,7 @@ function MS_cancelChoiceTimer() {
     clearTimeout(MS_choiceTimerTimeoutId);
   }
 
-  // ---> NEW (Phase 2.8.C.48): stop the player-facing countdown tick.
-  if (MS_choiceTimerIntervalId !== null) {
-    clearInterval(MS_choiceTimerIntervalId);
-    MS_choiceTimerIntervalId = null;
-  }
-
   MS_choiceTimerTimeoutId = null;
-  MS_choiceTimerDeadlineMs = null;
   MS_choiceTimerActive = false;
 
   // ---> NEW (Phase 2.8.C.49): timed-choice lifetime is over;
@@ -1044,6 +1017,16 @@ async function msPyStartGame() {
     MS_latestInputMode = parsed.meta.input_mode;
   }
 
+  // ---> NEW (Phase 2.8.C.54): START owns its timer metadata just like
+  // every later engine response. No stale timer state may cross turns.
+  MS_latestChoiceTimeoutSeconds =
+    parsed.meta.choice_timeout_seconds !== undefined
+      ? parsed.meta.choice_timeout_seconds
+      : null;
+
+  MS_latestChoiceTimerContinues =
+    parsed.meta.choice_timer_continues === true;
+
   if (parsed.meta.choices !== undefined) {
     MS_latestChoices = parsed.meta.choices;
     MS_applyVkbdFromChoices();
@@ -1080,11 +1063,13 @@ async function msPySendInput(text) {
       MS_latestInputMode = parsed.meta.input_mode;
     }
 
-    // ---> NEW (Phase 2.8): capture the engine-owned timed-choice allowance.
-    // Do not start a countdown yet.
-    if (parsed.meta.choice_timeout_seconds !== undefined) {
-      MS_latestChoiceTimeoutSeconds = parsed.meta.choice_timeout_seconds;
-    }
+    // ---> NEW (Phase 2.8.C.54): every engine response owns its timer metadata.
+    // If this response does not declare a new allowance, no stale allowance
+    // from an earlier response may survive.
+    MS_latestChoiceTimeoutSeconds =
+      parsed.meta.choice_timeout_seconds !== undefined
+        ? parsed.meta.choice_timeout_seconds
+        : null;
 
     // ---> NEW (Phase 2.8.C.36): capture only; real-time timer behavior
     // is intentionally not implemented in this microstep.
@@ -1202,6 +1187,12 @@ function showMainMenu() {
       // ---> NEW (Phase 2.3): wipe non-narrative UI state so nothing stale leaks into a fresh Start
       applyEnginePrompt("");     // clears the visible ">" prompt
       MS_latestChoices = null;   // clears cached choices plumbing (UI for choices comes later)
+
+      // ---> NEW (Phase 2.8.C.54): a fresh game is a hard timer boundary.
+      // Nothing from a previous timed-choice lifetime may survive Start.
+      MS_cancelChoiceTimer();
+      MS_latestChoiceTimeoutSeconds = null;
+      MS_latestChoiceTimerContinues = false;
 
       // Phase 2.3: BOOT should already be done during loading ritual.
       // Fallback: if something re-entered the menu without BOOT, recover safely.
@@ -1533,15 +1524,16 @@ function maybeUnlockTurnInput() {
   const noPendingPrint = (!__msPrinting) && (__msPrintQueue.length === 0);
 
   if (__msAwaitingInput && noPendingPrint) {
-    // ---> NEW (Phase 2.8.C.39): a NEW timed-choice lifetime begins only
-    // when that choice has finished printing and is actually playable.
-    // Repeated gate checks must never restart an already-active countdown.
+    // ---> NEW (Phase 2.8.C.54): consume a NEW timed-choice allowance exactly
+    // once, at the moment the fully printed choice becomes playable.
     if (
       MS_choiceTimerActive === false &&
       MS_latestChoiceTimerContinues === false &&
       MS_latestChoiceTimeoutSeconds !== null
     ) {
-      MS_startChoiceTimer(MS_latestChoiceTimeoutSeconds);
+      const timeoutSeconds = MS_latestChoiceTimeoutSeconds;
+      MS_latestChoiceTimeoutSeconds = null;
+      MS_startChoiceTimer(timeoutSeconds);
     }
 
     setGameplayInputEnabled(true);
@@ -1633,10 +1625,6 @@ function drainTranscriptQueue({ delayMs, initialBurst } = {}) {
     appendTranscriptLine(__msPrintQueue.shift());
     burstLeft--;
   }
-
-  // Phase 2.4: STRICT turn-based behavior.
-  // Do NOT unlock/focus here. Keyboard must only appear on the player's TURN.
-  maybeUnlockTurnInput();
 
   const finish = () => {
     __msPrinting = false;
