@@ -641,15 +641,16 @@ function MS_startChoiceTimer(seconds) {
       MS_choiceTimerTimeoutId = null;
       MS_choiceTimerActive = false;
 
-      // The timed choice is over immediately at zero.
-      setGameplayInputEnabled(false);
+      // The choice is logically over at zero, but preserve the current
+      // keyboard/layout briefly so 00 remains part of the visible countdown.
       __msAwaitingInput = false;
 
-      // Keep 00 visible long enough for the player to actually perceive it,
-      // then remove the expired timer before the timeout consequence arrives.
+      // Give zero a deliberate final beat before collapsing the input UI.
       await new Promise((resolve) => {
-        setTimeout(resolve, 500);
+        setTimeout(resolve, 1000);
       });
+
+      setGameplayInputEnabled(false);
       MS_renderChoiceTimer(null);
 
       try {
@@ -1582,6 +1583,16 @@ function setGameplayInputEnabled(enabled) {
       } else {
         vkbd.dataset.mode = "";
         vkbEnsureScaffold();
+
+        // ---> NEW (Phase 2.8.C.54.3D): showing the VKBD contracts the
+        // transcript viewport. Re-anchor after that layout change settles.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (transcriptBox) {
+              transcriptBox.scrollTop = transcriptBox.scrollHeight;
+            }
+          });
+        });
       }
     }
   } catch {}
