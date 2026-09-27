@@ -645,12 +645,10 @@ function MS_startChoiceTimer(seconds) {
       setGameplayInputEnabled(false);
       __msAwaitingInput = false;
 
-      // Let 00 render once, then remove the expired timer before the
-      // timeout consequence begins arriving from the engine.
+      // Keep 00 visible long enough for the player to actually perceive it,
+      // then remove the expired timer before the timeout consequence arrives.
       await new Promise((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(resolve);
-        });
+        setTimeout(resolve, 500);
       });
       MS_renderChoiceTimer(null);
 
@@ -1480,17 +1478,11 @@ function installScrollJail() {
 function appendTranscriptLine(line = "") {
   if (!transcriptBox) return;
 
-  const distanceFromBottom =
-    transcriptBox.scrollHeight - transcriptBox.scrollTop - transcriptBox.clientHeight;
-  const wasNearBottom = distanceFromBottom <= MS_TRANSCRIPT_NEAR_BOTTOM_SLACK_PX;
-
   transcriptBox.textContent += String(line) + "\n";
 
-  if (wasNearBottom) {
-    requestAnimationFrame(() => {
-      transcriptBox.scrollTop = transcriptBox.scrollHeight;
-    });
-  }
+  requestAnimationFrame(() => {
+    transcriptBox.scrollTop = transcriptBox.scrollHeight;
+  });
 }
 
 // Install immediately (app.js runs after DOM nodes exist)
