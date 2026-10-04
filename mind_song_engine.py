@@ -777,6 +777,10 @@ class MindSongEngine:
                     [f"{character_name} answers, 'I would tell him to dance it off, like a puppy shakes water.'"],
                 ]
 
+                # ---> NEW (Phase 2.8.C.55A): expose the desktop
+                # level_progression() continuation boundary to the adapter.
+                out["meta"]["level_transition_ready"] = True
+
                 return out
 
             # ---> NEW (Phase 2.8): second authored valid_input() follow-up result.
@@ -798,6 +802,10 @@ class MindSongEngine:
                 out["beats"] = [
                     [f"'{missing_parent} would tell me to sing how I feel in my mind.'"],
                 ]
+
+                # ---> NEW (Phase 2.8.C.55A): expose the desktop
+                # level_progression() continuation boundary to the adapter.
+                out["meta"]["level_transition_ready"] = True
 
                 return out
 

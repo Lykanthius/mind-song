@@ -588,6 +588,10 @@ let MS_latestChoices = null;
 // ---> NEW: Phase 3.1 engine-declared keyboard mode (capture only for now)
 let MS_latestInputMode = null;
 
+// ---> NEW (Phase 2.8.C.55B): capture whether the latest engine response
+// reached the desktop level_progression() continuation boundary.
+let MS_levelTransitionReady = false;
+
 // ---> NEW (Phase 2.8): latest engine-declared timed-choice allowance.
 // Capture only for now; no countdown behavior yet.
 let MS_latestChoiceTimeoutSeconds = null;
@@ -932,6 +936,9 @@ def _ms_emit(out):
         # ---> NEW (Phase 2.8.C.35): tell JS that an invalid timed submission
         # remains inside the SAME countdown lifetime.
         "choice_timer_continues": bool(meta.get("choice_timer_continues", False)),
+        # ---> NEW (Phase 2.8.C.55C): carry the explicit desktop
+        # level_progression() continuation boundary into JS.
+        "level_transition_ready": bool(meta.get("level_transition_ready", False)),
     }
     print("\x1eMS:" + json.dumps(ctrl, ensure_ascii=False))
 
@@ -1026,6 +1033,10 @@ async function msPyStartGame() {
   MS_latestChoiceTimerContinues =
     parsed.meta.choice_timer_continues === true;
 
+  // ---> NEW (Phase 2.8.C.55B): START owns its transition metadata too.
+  MS_levelTransitionReady =
+    parsed.meta.level_transition_ready === true;
+
   if (parsed.meta.choices !== undefined) {
     MS_latestChoices = parsed.meta.choices;
     MS_applyVkbdFromChoices();
@@ -1074,6 +1085,11 @@ async function msPySendInput(text) {
     // is intentionally not implemented in this microstep.
     MS_latestChoiceTimerContinues =
       parsed.meta.choice_timer_continues === true;
+
+    // ---> NEW (Phase 2.8.C.55B): every engine response owns its
+    // level-transition boundary metadata; never preserve stale readiness.
+    MS_levelTransitionReady =
+      parsed.meta.level_transition_ready === true;
 
     if (parsed.meta.prompt) {
       applyEnginePrompt(parsed.meta.prompt);
@@ -1515,6 +1531,48 @@ function maybeUnlockTurnInput() {
   // 2) there is no paced printing still happening
   // 3) there is no queued transcript waiting to print
   const noPendingPrint = (!__msPrinting) && (__msPrintQueue.length === 0);
+
+  // ---> NEW (Phase 2.8.C.55E): successful Child Level 1 has reached
+  // the desktop pause_continue() boundary. Present its dedicated Enter-only
+  // continuation gate without sending another ordinary input to the engine.
+  if (MS_levelTransitionReady === true && noPendingPrint) {
+    applyEnginePrompt("> ");
+
+    if (vkbd) {
+      vkbd.innerHTML = "";
+
+      const enterBtn = document.createElement("button");
+      enterBtn.type = "button";
+      enterBtn.textContent = "ENTER";
+      enterBtn.classList.add("ms-vkbd-btn");
+
+      enterBtn.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        // C.55E intentionally stops here.
+        // C.55F will own what happens after pause_continue() returns.
+      });
+
+      vkbd.appendChild(enterBtn);
+      vkbd.style.display = "flex";
+      vkbd.setAttribute("aria-hidden", "false");
+      vkbd.setAttribute("aria-disabled", "false");
+      vkbd.style.pointerEvents = "auto";
+
+      document.body.classList.add("ms-vkbd-on");
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (transcriptBox) {
+            transcriptBox.scrollTop = transcriptBox.scrollHeight;
+          }
+        });
+      });
+    }
+
+    return;
+  }
 
   if (__msAwaitingInput && noPendingPrint) {
     // ---> NEW (Phase 2.8.C.54): consume a NEW timed-choice allowance exactly
