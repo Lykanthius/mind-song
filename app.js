@@ -1532,11 +1532,15 @@ function maybeUnlockTurnInput() {
   // 3) there is no queued transcript waiting to print
   const noPendingPrint = (!__msPrinting) && (__msPrintQueue.length === 0);
 
-  // ---> NEW (Phase 2.8.C.55E): successful Child Level 1 has reached
-  // the desktop pause_continue() boundary. Present its dedicated Enter-only
-  // continuation gate without sending another ordinary input to the engine.
+  // ---> NEW (Phase 2.8.C.55E-R): successful Child Level 1 has reached
+  // the desktop pause_continue() boundary. Activate the shared VKBD through
+  // its established gameplay path, then replace MINIMAL with Enter-only UI.
   if (MS_levelTransitionReady === true && noPendingPrint) {
     applyEnginePrompt("> ");
+
+    // Use the existing VKBD activation path so visibility, layout padding,
+    // enabled state, and viewport re-anchoring stay consistent on mobile.
+    setGameplayInputEnabled(true);
 
     if (vkbd) {
       vkbd.innerHTML = "";
@@ -1550,25 +1554,11 @@ function maybeUnlockTurnInput() {
         ev.preventDefault();
         ev.stopPropagation();
 
-        // C.55E intentionally stops here.
+        // C.55E-R intentionally stops here.
         // C.55F will own what happens after pause_continue() returns.
       });
 
       vkbd.appendChild(enterBtn);
-      vkbd.style.display = "flex";
-      vkbd.setAttribute("aria-hidden", "false");
-      vkbd.setAttribute("aria-disabled", "false");
-      vkbd.style.pointerEvents = "auto";
-
-      document.body.classList.add("ms-vkbd-on");
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (transcriptBox) {
-            transcriptBox.scrollTop = transcriptBox.scrollHeight;
-          }
-        });
-      });
     }
 
     return;
