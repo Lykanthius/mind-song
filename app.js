@@ -1554,14 +1554,17 @@ function maybeUnlockTurnInput() {
         ev.preventDefault();
         ev.stopPropagation();
 
-        // ---> NEW (Phase 2.8.C.55F): ENTER completes the mobile
-        // pause_continue() gate locally. Do not send input to Python.
+        // ---> NEW (Phase 2.8.C.55F-R): diagnose the continuation gate
+        // directly on-device without sending anything to Python.
         MS_levelTransitionReady = false;
-        applyEnginePrompt("");
-        setGameplayInputEnabled(false);
+        applyEnginePrompt("C55F-A");
 
-        // The actual post-pause level_progression() transition remains
-        // a separate microstep; Level 2 is not entered here.
+        try {
+          setGameplayInputEnabled(false);
+          applyEnginePrompt("C55F-B");
+        } catch (e) {
+          applyEnginePrompt("C55F-ERR");
+        }
       });
 
       vkbd.appendChild(enterBtn);
