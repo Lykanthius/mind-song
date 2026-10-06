@@ -1532,9 +1532,9 @@ function maybeUnlockTurnInput() {
   // 3) there is no queued transcript waiting to print
   const noPendingPrint = (!__msPrinting) && (__msPrintQueue.length === 0);
 
-  // ---> NEW (Phase 2.8.C.55E-R): successful Child Level 1 has reached
-  // the desktop pause_continue() boundary. Activate the shared VKBD through
-  // its established gameplay path, then replace MINIMAL with Enter-only UI.
+  // ---> NEW (Phase 2.8.C.55F-R2): successful Child Level 1 has reached
+  // the desktop pause_continue() boundary. Reuse the established VKBD
+  // submit funnel, but temporarily give it continuation-gate ownership.
   if (MS_levelTransitionReady === true && noPendingPrint) {
     applyEnginePrompt("> ");
 
@@ -1542,30 +1542,20 @@ function maybeUnlockTurnInput() {
     // enabled state, and viewport re-anchoring stay consistent on mobile.
     setGameplayInputEnabled(true);
 
+    // During this gate, Enter means only "pause_continue() has returned."
+    // It must not submit ordinary gameplay input or call Python.
+    __msActiveSubmitFn = () => {
+      MS_levelTransitionReady = false;
+      applyEnginePrompt("");
+      setGameplayInputEnabled(false);
+      __msActiveSubmitFn = null;
+    };
+
     if (vkbd) {
       vkbd.innerHTML = "";
 
-      const enterBtn = document.createElement("button");
-      enterBtn.type = "button";
-      enterBtn.textContent = "ENTER";
-      enterBtn.classList.add("ms-vkbd-btn");
-
-      enterBtn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-
-        // ---> NEW (Phase 2.8.C.55F-R): diagnose the continuation gate
-        // directly on-device without sending anything to Python.
-        MS_levelTransitionReady = false;
-        applyEnginePrompt("C55F-A");
-
-        try {
-          setGameplayInputEnabled(false);
-          applyEnginePrompt("C55F-B");
-        } catch (e) {
-          applyEnginePrompt("C55F-ERR");
-        }
-      });
+      const makeBtn = vkbMakeBtnFactory();
+      const enterBtn = makeBtn("ENTER", () => vkbSubmitViaFunnel());
 
       vkbd.appendChild(enterBtn);
     }
