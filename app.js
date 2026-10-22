@@ -1548,6 +1548,12 @@ function maybeUnlockTurnInput() {
       MS_levelTransitionReady = false;
       applyEnginePrompt("");
       setGameplayInputEnabled(false);
+
+      // C.55F-R3: Hide the unused input row between levels.
+      // Leave the transcript and its scroll position untouched.
+      const inputRow = document.getElementById("inputRow");
+      if (inputRow) inputRow.style.display = "none";
+
       __msActiveSubmitFn = null;
     };
 
