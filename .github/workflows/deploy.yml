@@ -1,0 +1,66 @@
+name: Deploy Mind Song
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build fingerprinted site
+        shell: bash
+        run: |
+          # NEW: Publish only the mobile website and its required assets.
+          # MAINTENANCE: Whenever new game assets are introduced, update this
+          # deployment list to include them (e.g., BR-PT localization files,
+          # ASCII artwork, JSON files, new audio formats, or asset folders).
+          # Otherwise, those files may be missing from the published website.
+          mkdir -p _site
+          cp index.html app.js style.css py_worker.js mind_song_engine.py ASCII_art.txt _site/
+          cp ./*.m4a ./*.ogg ./*.svg _site/
+          python3 - <<'PY'
+          from hashlib import sha256
+          from pathlib import Path
+
+          site = Path('_site')
+          html_path = site / 'index.html'
+          html = html_path.read_text(encoding='utf-8')
+          for filename, placeholder in (
+              ('style.css', '__STYLE_HASH__'),
+              ('app.js', '__APP_HASH__'),
+          ):
+              if html.count(placeholder) != 1:
+                  raise SystemExit(f'Expected exactly one {placeholder} in index.html')
+              digest = sha256((site / filename).read_bytes()).hexdigest()[:16]
+              html = html.replace(placeholder, digest)
+          html_path.write_text(html, encoding='utf-8')
+          PY
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
