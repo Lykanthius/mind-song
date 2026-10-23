@@ -839,5 +839,22 @@ class MindSongEngine:
 
             return out
 
+
+        # C.55F-R5: Begin the canonical Level 2 opening only
+        # when the browser explicitly requests continuation.
+        if stage == "CHILD_LEVEL_ONE_COMPLETE" and s == "__LEVEL2_START__":
+            self.state["stage"] = "CHILD_LEVEL_TWO_OPENING"
+
+            lines = [
+                "",
+                "Later that morning at an outdoor cafe...",
+            ]
+
+            out = _mk_output(lines, prompt="", input_mode="MINIMAL")
+            out["beats"] = [
+                ["Later that morning at an outdoor cafe..."],
+            ]
+            return out
+
         # For now, no invented continuation. (Next Phase will route into the next authored slice.)
         return _mk_output([])
