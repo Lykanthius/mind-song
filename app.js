@@ -1550,11 +1550,18 @@ function maybeUnlockTurnInput() {
       setGameplayInputEnabled(false);
 
       // C.55F-R3: Hide the unused input row between levels.
-      // Leave the transcript and its scroll position untouched.
       const inputRow = document.getElementById("inputRow");
       if (inputRow) inputRow.style.display = "none";
 
+      // C.55F-R4: Match the desktop's fresh Level 2 screen.
+      // The previous level's transcript must not carry forward.
+      if (transcriptBox) {
+        transcriptBox.textContent = "";
+        transcriptBox.scrollTop = 0;
+      }
+
       __msActiveSubmitFn = null;
+
     };
 
     if (vkbd) {
