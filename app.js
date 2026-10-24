@@ -1091,7 +1091,8 @@ async function msPySendInput(text) {
     MS_levelTransitionReady =
       parsed.meta.level_transition_ready === true;
 
-    if (parsed.meta.prompt) {
+    // An explicitly empty engine prompt must also clear input readiness.
+    if (parsed.meta.prompt !== undefined) {
       applyEnginePrompt(parsed.meta.prompt);
     }
 
@@ -1542,8 +1543,10 @@ function maybeUnlockTurnInput() {
     // enabled state, and viewport re-anchoring stay consistent on mobile.
     setGameplayInputEnabled(true);
 
-    // During this gate, Enter means only "pause_continue() has returned."
-    // It must not submit ordinary gameplay input or call Python.
+
+    // During this gate, ENTER completes the desktop pause_continue() boundary.
+    // It sends the dedicated Level 2 start signal to Python,
+    // never ordinary gameplay input.
     __msActiveSubmitFn = () => {
       MS_levelTransitionReady = false;
       applyEnginePrompt("");
@@ -1562,7 +1565,13 @@ function maybeUnlockTurnInput() {
 
       __msActiveSubmitFn = null;
 
+      // C.55F-R6: Ask the existing Python engine to begin Level 2.
+      // Reuse the normal response parser and paced transcript printer.
+      msPySendInput("__LEVEL2_START__").catch((err) => {
+        appendTranscriptLine(`[PY ERR] ${String(err)}`);
+      });
     };
+
 
     if (vkbd) {
       vkbd.innerHTML = "";
